@@ -1,0 +1,168 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow created="1581253156690" explicitTransitions="true" id="c0a8007d7028185381702a085f520257" modified="1581258305643" name="Workflow-LDAP-Update-Group">
+  <Variable initializer="string:true" name="transient"/>
+  <Variable name="approver"/>
+  <Variable name="ldapGroup"/>
+  <Variable name="criteria"/>
+  <Variable name="approverName"/>
+  <Variable name="ldapGroupName"/>
+  <Variable name="criteriaName"/>
+  <Variable name="plan"/>
+  <Variable name="project">
+    <Description>
+		ProvisioningProject which is just a compiled version of the ProvisioningPlan.
+	</Description>
+  </Variable>
+  <Variable initializer="string:true" name="trace"/>
+  <Description>LDAP - Group Creation Form.</Description>
+  <Step icon="Start" name="Start" posX="28" posY="10">
+    <Transition to="UpdateLdapGroupForm"/>
+  </Step>
+  <Step icon="Approval" name="UpdateLdapGroupForm" posX="115" posY="10">
+    <Approval mode="serial" name="LdapGroupForm" owner="spadmin" return="ldapGroup,criteria,approver">
+      <Arg name="workItemType" value="Form"/>
+      <Arg name="workItemDescription" value="LDAP Group Update Form"/>
+      <Arg name="workItemForm" value="Form-Update-LDAP-Group"/>
+    </Approval>
+    <Transition to="Confirm"/>
+  </Step>
+  <Step name="Confirm" posX="212" posY="10">
+    <Approval mode="serial" name="Approve Request" owner="spadmin" send="ldapGroup,criteria,approver" return="ldapGroupName,criteriaName,approverName">
+      <Form name="LDAP-Approval-Form">
+        <Attributes>
+          <Map>
+            <entry key="pageTitle" value="Confirm LDAP Group Settings"/>
+          </Map>
+        </Attributes>
+        <Button action="next" label="Approve"/>
+        <Button action="cancel" label="Cancel Request"/>
+        <Section label="Provide Group Info">
+          <Field displayName="LDAP Group Name" name="ldapGroupName" readOnly="true" required="true" type="string">
+            <Script>
+              <Source>
+              <![CDATA[ 
+                import sailpoint.object.ManagedAttribute;
+                ManagedAttribute managedAttribute = context.getObject(ManagedAttribute.class,ldapGroup);
+                if(managedAttribute != null) {
+                	return managedAttribute.value;
+                } else {
+                	return null;
+                }
+                ]]>
+            </Source>
+            </Script>
+          </Field>
+          <Field displayName="Criteria" name="criteriaName" readOnly="true" required="true" type="string">
+            <Script>
+              <Source>
+              <![CDATA[ 
+                import sailpoint.object.GroupDefinition;
+                GroupDefinition groupDefinition = context.getObject(GroupDefinition.class,criteria);
+                if(groupDefinition != null) {
+                	return groupDefinition.getName();
+                } else {
+                	return null;
+                }
+                ]]>
+            </Source>
+            </Script>
+          </Field>
+          <Field displayName="Approver" name="approverName" readOnly="true" required="true" type="string">
+            <Script>
+              <Source>
+              <![CDATA[
+                 import sailpoint.object.Identity;
+                 Identity identity = context.getObject(Identity.class,approver);
+                 if(identity != null) {
+                  return identity.getDisplayName();
+                 } else {
+                  return null;
+                 }
+                 ]]>
+            </Source>
+            </Script>
+          </Field>
+        </Section>
+      </Form>
+    </Approval>
+    <Transition to="Build Plan" when="script:approved"/>
+    <Transition to="Stop"/>
+  </Step>
+  <Step name="Build Plan" posX="212" posY="10" resultVariable="plan">
+  	<Description>This step will construct a provisioning plan with the requested LDAP groups.</Description>
+    <Script>
+      <Source> 
+      <![CDATA[
+		// Imports for Provisioning Plan, Object Request
+		import sailpoint.object.ProvisioningPlan;
+		import sailpoint.object.ProvisioningPlan.ObjectRequest;
+		import sailpoint.object.ProvisioningPlan.AttributeRequest;
+		import sailpoint.object.Identity;
+		import java.util.List;
+		import java.util.ArrayList;
+        import org.apache.log4j.Level;
+		import org.apache.log4j.Logger;	
+		
+		Logger log = Logger.getLogger("file");
+		log.setLevel(Level.TRACE);
+		log.trace("Enter: Build Plan");
+				
+		// Constants for this example
+		String appName = "LDAP App";
+		
+		ProvisioningPlan plan = new ProvisioningPlan();
+		ObjectRequest objReq = new ObjectRequest();
+		objReq.setOp(ProvisioningPlan.ObjectOperation.Set);
+		objReq.add(new AttributeRequest("member",ProvisioningPlan.Operation.Add,approverName));
+		objReq.setApplication(appName);
+		objReq.setNativeIdentity(ldapGroupName);
+		
+		List objReqList = new ArrayList();
+    	objReqList.add(objReq);
+		
+		plan.setObjectRequests(objReqList);
+		//plan.addRequester(context.getObjectByName(Identity.class,context.getUserName())); 
+        
+  				log.trace("plan--- \n"+plan.toXml());
+				log.trace("Exit: Build Plan");
+		// return the plan so it's available in the workflow for later. 
+		return plan;
+				]]>
+  			</Source>
+    </Script>
+    <Transition to="Compile Project"/>
+  </Step>
+  <Step action="call:compileProvisioningProject" name="Compile Project" posX="406" posY="10" resultVariable="project">
+    <Arg name="identityName" value="ref:approverName"/>
+    <Arg name="plan" value="ref:plan"/>
+    <Arg name="requester" value="string:spadmin"/>
+    <Arg name="source" value="string:UI"/>
+    <Arg name="optimisticProvisioning" value="string:false"/>
+    <Arg name="requireCreateTemplates" value="string:false"/>
+    <Arg name="noApplicationTemplates" value="string:true"/>
+    <Description>Compile the provisioning plan into a provisioning project.
+
+                 If you need to pass in provisioner options like "noFiltering"
+
+                 or "noRoleDeprovisioning" you must pass them as explicit
+
+                 arguments to the call.
+
+                 The evaluation options "requester" and "source" are commonly
+
+                 set here.             
+
+                 You can also pass things into the Template and Field scripts by
+
+                 defining Args in this step.</Description>
+    <Transition to="Provision"/>
+  </Step>
+  <Step action="call:provisionProject" icon="Provision" name="Provision" posX="682" posY="10">
+    <Arg name="background" value="string:true"/>
+    <Arg name="project" value="ref:project"/>
+    <Description>Provision the project.</Description>
+    <Transition to="end"/>
+  </Step>
+  <Step icon="Stop" name="end" posX="784" posY="10"/>
+</Workflow>

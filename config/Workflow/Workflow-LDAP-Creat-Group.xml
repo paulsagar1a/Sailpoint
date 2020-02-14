@@ -1,0 +1,55 @@
+import sailpoint.object.Application;
+    import sailpoint.object.Identity;
+    import sailpoint.object.WorkflowCase;
+    import sailpoint.tools.GeneralException;
+    import sailpoint.tools.Util;
+    import sailpoint.object.AuditEvent;
+    import sailpoint.workflow.WorkflowContext;
+    import progressive.pims.IdentityRequestUtil;
+    import progressive.pims.WorkflowUtil;
+    import sailpoint.object.ProvisioningPlan;
+    import sailpoint.object.ProvisioningPlan.AttributeRequest;
+    import sailpoint.object.ProvisioningPlan.Operation;
+    import sailpoint.object.ProvisioningPlan.ObjectRequest;
+    import sailpoint.object.ProvisioningPlan.ObjectOperation;
+    import java.util.ArrayList;
+    import java.util.List;
+   
+    // Create Provisioning Plan and add needed attribute values
+    ProvisioningPlan plan = new ProvisioningPlan();
+    ProvisioningPlan.ObjectRequest objRequest = new ProvisioningPlan.ObjectRequest();
+    String appName = newEntitlementModel.get("applicationName");
+    String groupName = newEntitlementModel.get("preferredName");
+    String description = newEntitlementModel.get("purpose");
+    Application app = context.getObjectByName(Application.class,appName);      
+    objRequest.setApplication(appName); // Defining target application for provisioning
+
+    objRequest.setNativeIdentity(groupName); // //Defining name
+    objRequest.setOp(ObjectOperation.Create);// For creating an account
+    objRequest.setType("group");
+    Application app = context.getObjectByName(Application.class,appName);
+    plan.setTargetIntegration(appName);
+
+
+        //  Create Active Directory Plan
+        String description = newEntitlementModel.get("purpose");
+        String businessApp = newEntitlementModel.get("businessApplication");
+
+        String groupDN = FormatActiveDirectoryKey(groupName, businessApp, appName);
+        objRequest.setNativeIdentity(groupDN);
+        objRequest.add(new AttributeRequest("distinguishedName", ProvisioningPlan.Operation.Add,groupDN));
+        objRequest.add(new AttributeRequest("sAMAccountName", ProvisioningPlan.Operation.Add,groupName));
+        objRequest.add(new AttributeRequest("objectClass", ProvisioningPlan.Operation.Add,"group"));
+        objRequest.add(new AttributeRequest("description", ProvisioningPlan.Operation.Add,description));
+        objRequest.add(new AttributeRequest("GroupType", ProvisioningPlan.Operation.Add,"Security"));
+        objRequest.add(new AttributeRequest("ObjectType", ProvisioningPlan.Operation.Add,"Group"));
+        objRequest.add(new AttributeRequest("GroupScope", ProvisioningPlan.Operation.Add,"Global"));
+        objRequest.add(new AttributeRequest("sysAttribute", ProvisioningPlan.Operation.Add,"memberOf"));
+        objRequest.add(new AttributeRequest("sysDisplayName", ProvisioningPlan.Operation.Add, groupName));
+        objRequest.add(new AttributeRequest("sysManagedAttributeType", ProvisioningPlan.Operation.Add,"group"));
+   
+    List accReqList = new ArrayList();
+    accReqList.add(objRequest);
+    plan.setObjectRequests(accReqList);
+
+    return plan;

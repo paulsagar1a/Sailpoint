@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Form PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Form created="1581246472860" id="c0a8007d70281853817029a2629c0174" modified="1581255807129" name="Form-Update-LDAP-Group">
+  <Attributes>
+    <Map>
+      <entry key="pageTitle" value="Update the LDAP form"/>
+    </Map>
+  </Attributes>
+  <Description>Form to update LDAP Group</Description>
+  <Section label="Provide Group Info">
+    <Field displayName="LDAP Group Name" name="ldapGroup" required="true" type="sailpoint.object.ManagedAttribute"/>
+    <Field displayName="Criteria" name="criteria" required="true" type="sailpoint.object.GroupDefinition"/>
+    <Field displayName="Approver" name="approver" required="true" type="sailpoint.object.Identity"/>
+  </Section>
+  <Button action="next" label="Submit"/>
+  <Button action="cancel" label="Cancel"/>
+</Form>
